@@ -1,218 +1,198 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Packet Cumulative Latency Animation</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0;
-  }
-  canvas {
-    background-color: #f0f0f0;
-    margin: 20px auto;
-    display: block;
-    border: 1px solid #ccc;
-  }
-  .buttons-container {
-    margin: 15px auto;
-    max-width: 900px;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-  }
-  button {
-    background-color: #008CBA;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    font-size: 16px;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  button:hover {
-    background-color: #005f75;
-  }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Illustrative multi-hop packet latency animation">
+  <title>Network Packet Latency Simulator</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 24px 16px; background: #f8fafc; color: #172033; text-align: center; }
+    main { max-width: 1040px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.5rem, 4vw, 2rem); }
+    .intro { max-width: 760px; margin: 0 auto 16px; color: #475569; }
+    .notice { margin: 16px auto; padding: 12px; max-width: 900px; border: 1px solid #e5a000; border-radius: 8px; background: #fffbeb; color: #78350f; text-align: left; }
+    canvas { display: block; width: min(960px, 100%); height: auto; margin: 18px auto; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin: 16px auto; }
+    button, select { border: 1px solid #94a3b8; border-radius: 6px; padding: 10px 16px; background: white; color: #172033; font: inherit; cursor: pointer; }
+    button:focus-visible, select:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+    button.primary { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+    footer { margin-top: 20px; color: #64748b; font-size: .9rem; }
+  </style>
 </head>
 <body>
+  <main>
+    <h1>Network Packet Latency Simulator</h1>
+    <p class="intro">An illustrative animation of two packets traversing alternative multi-hop paths. The displayed segment delays are sample values, not measured network latency.</p>
+    <p class="notice"><strong>Simulation only:</strong> This page does not generate network traffic, run traceroute or ping, capture packets, or collect telemetry. Animation speed is a visual aid and is not real-time latency.</p>
+    <canvas id="networkCanvas" width="960" height="550" role="img" aria-label="Two animated packet markers following separate paths between a client, transit nodes, service nodes and a response endpoint."></canvas>
+    <div class="controls" aria-label="Simulation controls">
+      <button class="primary" id="pauseButton" type="button">Pause</button>
+      <button id="resetButton" type="button">Reset</button>
+      <label for="speedSelect">Animation speed</label>
+      <select id="speedSelect">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <footer>All nodes, paths and delay values are synthetic examples.</footer>
+  </main>
 
-<h2>Packet Animation with Cumulative Latency</h2>
-<canvas id="networkCanvas" width="960" height="550"></canvas>
+  <script>
+    'use strict';
 
-<div class="buttons-container">
-  <button id="btnIndia">User Traffic</button>
-  <button id="btnIndiaBrowser">Content Request</button>
-</div>
+    const canvas = document.getElementById('networkCanvas');
+    const context = canvas.getContext('2d');
+    const pauseButton = document.getElementById('pauseButton');
+    const resetButton = document.getElementById('resetButton');
+    const speedSelect = document.getElementById('speedSelect');
 
-<script>
-  const canvas = document.getElementById('networkCanvas');
-  const ctx = canvas.getContext('2d');
-
-  // Adjusted positions with more horizontal space for labels
-  const locations = {
-    'India': { x: 80, y: 450 },
-    'US East A': { x: 650, y: 150 },
-    'US East B': { x: 650, y: 280 },
-    'Landing Zone 1': { x: 850, y: 130 },
-    'Landing Zone 2': { x: 850, y: 300 },
-    'Browse India': { x: 80, y: 500 }
-  };
-
-  const segmentLatencies = {
-    'India-US East A': 260,
-    'US East A-Landing Zone 1': 9,
-    'Landing Zone 1-Browse India': 200,
-    'India-US East B': 260,
-    'US East B-Landing Zone 2': 9,
-    'Landing Zone 2-Browse India': 200,
-  };
-
-  const indiaPaths = {
-    indiaA: ['India', 'US East A', 'Landing Zone 1', 'Browse India'],
-    indiaB: ['India', 'US East B', 'Landing Zone 2', 'Browse India']
-  };
-
-  function drawRunner(ctx, x, y, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y - 10, 6, 0, Math.PI * 2);
-    ctx.moveTo(x, y - 4);
-    ctx.lineTo(x, y + 14);
-    ctx.moveTo(x - 10, y + 4);
-    ctx.lineTo(x + 10, y + 4);
-    ctx.moveTo(x, y + 14);
-    ctx.lineTo(x - 7, y + 30);
-    ctx.moveTo(x, y + 14);
-    ctx.lineTo(x + 7, y + 28);
-    ctx.stroke();
-  }
-
-  function lerp(p1, p2, t) {
-    return {
-      x: p1.x + (p2.x - p1.x) * t,
-      y: p1.y + (p2.y - p1.y) * t
+    const nodes = {
+      'Client': { x: 80, y: 450 },
+      'Transit A': { x: 650, y: 150 },
+      'Transit B': { x: 650, y: 280 },
+      'Service A': { x: 850, y: 130 },
+      'Service B': { x: 850, y: 300 },
+      'Response endpoint': { x: 80, y: 500 }
     };
-  }
 
-  class Traveler {
-    constructor(path, color, runnerOffset, labelPrefix) {
-      this.path = path;
-      this.color = color;
-      this.segment = 0;
-      this.progress = 0;
-      this.runnerOffset = runnerOffset;
-      this.labelPrefix = labelPrefix;
-      this.totalLatencySoFar = 0;
+    const segmentDelaysMs = {
+      'Client->Transit A': 260,
+      'Transit A->Service A': 9,
+      'Service A->Response endpoint': 200,
+      'Client->Transit B': 260,
+      'Transit B->Service B': 9,
+      'Service B->Response endpoint': 200
+    };
+
+    const paths = [
+      { name: 'Path A', nodes: ['Client', 'Transit A', 'Service A', 'Response endpoint'], color: '#dc2626', offset: 0 },
+      { name: 'Path B', nodes: ['Client', 'Transit B', 'Service B', 'Response endpoint'], color: '#7f1d1d', offset: 0 }
+    ];
+
+    function interpolate(start, end, progress) {
+      return {
+        x: start.x + (end.x - start.x) * progress,
+        y: start.y + (end.y - start.y) * progress
+      };
     }
 
-    update(deltaTime) {
-      const from = this.path[this.segment];
-      const to = this.path[this.segment + 1];
-      const segmentKey = `${from}-${to}`;
-      const latency = segmentLatencies[segmentKey] || 100;
+    class Packet {
+      constructor(path) {
+        this.path = path;
+        this.reset();
+      }
 
-      const speed = 1 / latency;
-
-      this.progress += speed * deltaTime;
-      if (this.progress >= 1) {
+      reset() {
+        this.segmentIndex = 0;
         this.progress = 0;
-        this.segment++;
-        if (this.segment >= this.path.length - 1) {
-          this.segment = 0;
-          this.totalLatencySoFar = 0;
-        } else {
-          this.totalLatencySoFar += latency;
+        this.completedDelayMs = 0;
+      }
+
+      update(frameUnits, multiplier) {
+        const fromName = this.path.nodes[this.segmentIndex];
+        const toName = this.path.nodes[this.segmentIndex + 1];
+        const delay = segmentDelaysMs[`${fromName}->${toName}`];
+
+        if (!Number.isFinite(delay) || delay <= 0) return;
+
+        this.progress += (frameUnits * multiplier) / delay;
+        while (this.progress >= 1) {
+          this.progress -= 1;
+          this.completedDelayMs += delay;
+          this.segmentIndex += 1;
+          if (this.segmentIndex >= this.path.nodes.length - 1) {
+            this.segmentIndex = 0;
+            this.completedDelayMs = 0;
+          }
         }
       }
-    }
 
-    draw(ctx) {
-      const from = locations[this.path[this.segment]];
-      const to = locations[this.path[this.segment + 1]];
-      const pos = lerp(from, to, this.progress);
+      draw() {
+        const from = nodes[this.path.nodes[this.segmentIndex]];
+        const to = nodes[this.path.nodes[this.segmentIndex + 1]];
+        const position = interpolate(from, to, this.progress);
+        const currentDelay = segmentDelaysMs[`${this.path.nodes[this.segmentIndex]}->${this.path.nodes[this.segmentIndex + 1]}`];
+        const cumulativeDelay = Math.round(this.completedDelayMs + currentDelay * this.progress);
 
-      ctx.fillStyle = this.color;
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
-      ctx.fill();
+        context.fillStyle = this.path.color;
+        context.beginPath();
+        context.arc(position.x, position.y, 8, 0, Math.PI * 2);
+        context.fill();
 
-      drawRunner(ctx, pos.x, pos.y - this.runnerOffset, this.color);
-
-      const fromLat = this.totalLatencySoFar;
-      const segmentKey = `${this.path[this.segment]}-${this.path[this.segment + 1]}`;
-      const segmentLatency = segmentLatencies[segmentKey] || 100;
-      const partialLatency = segmentLatency * this.progress;
-      const cumulativeLatency = Math.round(fromLat + partialLatency);
-
-      ctx.fillStyle = 'black';
-      ctx.font = '16px Arial';
-      ctx.fillText(`${this.labelPrefix} ${cumulativeLatency} ms`, pos.x + 12, pos.y);
-    }
-  }
-
-  const travelers = [
-    new Traveler(indiaPaths.indiaA, 'red', 40, 'India A:'),
-    new Traveler(indiaPaths.indiaB, 'darkred', 40, 'India B:')
-  ];
-
-  function drawLocations() {
-    ctx.fillStyle = 'black';
-    ctx.font = '18px Arial';
-    for (const [name, loc] of Object.entries(locations)) {
-      ctx.beginPath();
-      ctx.arc(loc.x, loc.y, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillText(name, loc.x + 10, loc.y + 7);
-    }
-  }
-
-  function drawPaths() {
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 3;
-    for (const path of Object.values(indiaPaths)) {
-      ctx.beginPath();
-      for (let i = 0; i < path.length - 1; i++) {
-        const from = locations[path[i]];
-        const to = locations[path[i + 1]];
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(to.x, to.y);
+        context.fillStyle = '#111827';
+        context.font = '15px system-ui, sans-serif';
+        context.fillText(`${this.path.name}: ${cumulativeDelay} ms*`, position.x + 12, position.y - 10);
       }
-      ctx.stroke();
     }
-  }
 
-  let last = 0;
-  function animate(time = 0) {
-    const deltaTime = (time - last) / 16.67;
-    last = time;
+    const packets = paths.map((path) => new Packet(path));
+    let paused = false;
+    let speedMultiplier = Number(speedSelect.value);
+    let previousFrameTime = 0;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawPaths();
-    drawLocations();
+    function drawTopology() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.lineWidth = 3;
+      context.strokeStyle = '#94a3b8';
 
-    travelers.forEach(traveler => {
-      traveler.update(deltaTime);
-      traveler.draw(ctx);
+      for (const path of paths) {
+        context.beginPath();
+        path.nodes.slice(0, -1).forEach((nodeName, index) => {
+          const from = nodes[nodeName];
+          const to = nodes[path.nodes[index + 1]];
+          context.moveTo(from.x, from.y);
+          context.lineTo(to.x, to.y);
+        });
+        context.stroke();
+      }
+
+      context.fillStyle = '#0f172a';
+      context.font = '16px system-ui, sans-serif';
+      for (const [name, point] of Object.entries(nodes)) {
+        context.beginPath();
+        context.arc(point.x, point.y, 6, 0, Math.PI * 2);
+        context.fill();
+        context.fillText(name, point.x + 10, point.y + 22);
+      }
+
+      context.fillStyle = '#475569';
+      context.font = '12px system-ui, sans-serif';
+      context.fillText('* Cumulative illustrative delay; not a live measurement.', 20, 28);
+    }
+
+    function render(frameTime = 0) {
+      const elapsed = previousFrameTime ? frameTime - previousFrameTime : 0;
+      previousFrameTime = frameTime;
+      const frameUnits = Math.min(elapsed / 16.67, 5);
+
+      drawTopology();
+      if (!paused) {
+        packets.forEach((packet) => packet.update(frameUnits, speedMultiplier));
+      }
+      packets.forEach((packet) => packet.draw());
+      requestAnimationFrame(render);
+    }
+
+    pauseButton.addEventListener('click', () => {
+      paused = !paused;
+      pauseButton.textContent = paused ? 'Resume' : 'Pause';
+      pauseButton.setAttribute('aria-label', paused ? 'Resume simulation' : 'Pause simulation');
     });
 
-    requestAnimationFrame(animate);
-  }
+    resetButton.addEventListener('click', () => {
+      packets.forEach((packet) => packet.reset());
+      paused = false;
+      pauseButton.textContent = 'Pause';
+      pauseButton.setAttribute('aria-label', 'Pause simulation');
+    });
 
-  animate();
+    speedSelect.addEventListener('change', () => {
+      speedMultiplier = Number(speedSelect.value);
+    });
 
-  // Example button click handlers (currently do nothing, can be customized)
-  document.getElementById('btnIndia').addEventListener('click', () => {
-    alert('India (User Location) button clicked');
-  });
-  document.getElementById('btnIndiaBrowser').addEventListener('click', () => {
-    alert('India Browser (Content) button clicked');
-  });
-</script>
-
+    requestAnimationFrame(render);
+  </script>
 </body>
 </html>
