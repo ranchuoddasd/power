@@ -98,10 +98,10 @@
         if (!Number.isFinite(delay) || delay <= 0) return;
 
         this.progress += (frameUnits * multiplier) / delay;
-        while (this.progress >= 1) {
-          this.progress -= 1;
+        if (this.progress >= 1) {
           this.completedDelayMs += delay;
           this.segmentIndex += 1;
+          this.progress = 0;
           if (this.segmentIndex >= this.path.nodes.length - 1) {
             this.segmentIndex = 0;
             this.completedDelayMs = 0;
