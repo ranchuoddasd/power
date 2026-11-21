@@ -1,36 +1,58 @@
 # Network Packet Latency Simulator
 
-A standalone browser animation demonstrating packets moving through a multi-hop path while cumulative latency changes along each segment.
+A standalone browser simulation that visualizes two packets moving across alternative multi-hop paths while displaying illustrative cumulative segment delay.
 
-**Status:** Static simulation. The path, segment delays, and locations are illustrative; this is not a real packet capture or network measurement.
+**Status:** Educational animation with synthetic topology and fixed sample delay values. It does not measure or generate real network traffic.
 
 ## Features
-- Canvas-based packet movement across a multi-hop path.
-- Two animated paths for visual comparison.
-- Per-segment delay values and cumulative latency labels.
-- Simple standalone HTML; no build tooling required.
+
+- Canvas-based multi-hop path visualization.
+- Two animated paths for comparison.
+- Cumulative sample delay labels.
+- Pause, resume and reset controls.
+- Adjustable animation speed.
+- No build tools, backend or external runtime dependencies.
 
 ## Run
-Open `index.html` in a modern browser.
 
-## Project files
-- `index.html` — animation, topology coordinates, sample latency data, and rendering loop.
+Open `index.html` in a modern browser. No installation or server is required.
+
+## Project structure
+
+```text
+.
+├── index.html
+├── README.md
+└── docs/
+    └── simulation-design.md
+```
+
+## Simulation model
+
+Each path is an ordered list of nodes. Each adjacent node pair has a sample delay value in milliseconds. The displayed cumulative value is the sum of completed segment delays plus the interpolated portion of the current segment.
+
+Animation speed is a visual progression control. It is deliberately not calibrated to real elapsed network time.
 
 ## Limitations
-- Fixed sample path and delay values.
-- Canvas coordinates do not represent geographic positions.
-- UI buttons are demonstration placeholders.
-- No actual network traffic, probes, or telemetry are generated.
-- Animation speed is illustrative and does not model latency in real time.
 
-## Roadmap
-- Configure path nodes and delays through JSON.
-- Add pause, reset, and playback-speed controls.
-- Add a legend and clear latency calculation explanation.
-- Test segment timing and cumulative latency calculations.
+- Paths, node positions and segment delays are fixed sample data.
+- Canvas coordinates are diagram positions, not geographic coordinates.
+- No ping, traceroute, packet capture, socket traffic or telemetry collection occurs.
+- No packet loss, jitter, congestion, routing convergence or queueing behavior is modeled.
+- No automated test suite is included.
 
 ## Security
-No external services, credentials, or network requests are required by the prototype.
+
+The prototype runs locally in the browser and makes no network requests. It contains no credentials or external service integrations.
+
+## Roadmap
+
+1. Load path definitions from validated JSON.
+2. Add packet loss, jitter and queueing as clearly defined simulation parameters.
+3. Add deterministic simulation tests for cumulative delay.
+4. Separate simulation state from canvas rendering.
+5. Add accessible textual summaries of path state.
 
 ## License
-No license is currently provided. Until one is added, reuse and redistribution are not granted by default.
+
+No license is currently provided. Until a license is added, reuse and redistribution are not granted by default.
